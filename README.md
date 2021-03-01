@@ -24,3 +24,6 @@ The dataset required for this program could be downloaded from Kaggle through fo
 - Tensorflow
 - nltk
 - pandas
+
+## Credits
+[Yumi's Blog](https://fairyonice.github.io/Develop_an_image_captioning_deep_learning_model_using_Flickr_8K_data.html)
