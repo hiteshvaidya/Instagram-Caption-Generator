@@ -25,6 +25,10 @@ The dataset required for this program could be downloaded from Kaggle through fo
    * Add column names from `data/instagram_data/captions_csv2.csv` viz. 'Image File' and 'Caption' to `data/instagram_data/captions_csv2.csv`
    * The readData.py script will now read data from both `.csv` files and merge all the images
 
+## Instructions before executing program
+1. Please create a new directory named `output` in the project directory
+2. You may change program hyperparameters like number of epochs and image size in `config.py`
+
 ## Usage
 ```python main.py```
 
