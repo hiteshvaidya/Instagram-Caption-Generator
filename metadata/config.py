@@ -15,5 +15,5 @@ BASE_OUTPUT = 'output'
 
 # use the base output path to derive the path to the serialized model along
 # with training history plot
-MODEL_PATH = os.path.sep.join([BASE_OUTPUT, 'Image_to_caption'])
+MODEL_PATH = os.path.sep.join([BASE_OUTPUT, 'Image_to_captionn'])
 PLOT_PATH = os.path.sep.join([BASE_OUTPUT, 'plot.png'])
