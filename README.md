@@ -20,6 +20,10 @@ pip install pandas
 The dataset required for this program could be downloaded from Kaggle through following steps:
 1. Download [Instagram Images with Captions](https://www.kaggle.com/prithvijaunjale/instagram-images-with-captions)
 2. Use [Kaggle API](https://github.com/Kaggle/kaggle-api) to download the above mentioned dataset. Once the API is installed, enter following command in the terminal, `kaggle datasets download -d prithvijaunjale/instagram-images-with-captions`
+3. In order to read the complete data seamlessly, I made few changes to the directory structure of this dataset which are as follows,
+  * Move contents of `data/instagram_data2` to `data/instagram_data`
+  * Add column names from `data/instagram_data/captions_csv2.csv` viz. 'Image File' and 'Caption' to `data/instagram_data/captions_csv2.csv`
+  * The readData.py script will now read data from both `.csv` files and merge all the images
 
 ## Usage
 ```python main.py```
