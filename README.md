@@ -2,6 +2,10 @@
 
 This project generates instagram captions for images. It is developed using a combination of Convolutional Neural Network and LSTM Neural Network.
 
+## New features coming up
+![construction image](https://lh3.googleusercontent.com/proxy/gCRrLDAr00rADvOBSqO6aCeDzJe4FKZMmRi5qJ2e36fR5sLji0v-o-G2lW0VoBSIONs3Mw37UlVai8lg5RbJWDUU6EG9PTbWhX2DkiOq0SsU6eHImYvvHLlS)
+### I am developing a webpage for this project which will contain additional features like #hash_tag prediction. Sorry for the inconvenience and thank you for visiting this project page
+
 ## Prerequisites
 You may use [pip](https://pip.pypa.io/en/stable/) or Conda package manager to install these packages
 ```bash
