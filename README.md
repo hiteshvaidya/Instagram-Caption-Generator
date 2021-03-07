@@ -9,7 +9,7 @@ This project generates instagram captions for images. It is developed using a co
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Motivation](#motivation)
-3. [Design Decisions and Structure](#Design-Decisions-and-Structure)
+3. [Design Decisions and Structure](#design-decisions-and-structure)
 4. [Pre-requisites](#pre-requisites)
 5. [Dataset](#dataset)
 6. [Instructions before executing program](#instructions-before-executing-program)
@@ -35,6 +35,29 @@ Further, I thought of making a web interface for this system so that people like
 * This project reads captions character by character using LSTM. Instead, every caption could be read at once and fed to the LSTM neural network.
 * A comparative study of both these approaches would be a nice analysis to perform
 * I have used VGG16 CNN in this project simply because of Occam's razor concept. You may try some other network as well. This applies to the configuration of LSTM used as well.
+
+### Directory Structure
+I could not upload all the files to github due to restriction over filesize. Nevertheless, following should be the structure of this directory
+```
+Instagram_caption_generator/
+├── data
+│   ├── instagram_data
+│   │   ├── captions_csv.csv
+│   │   ├── captions_csv2.csv
+│   │   ├── img [20515 entries exceeds filelimit, not opening dir]
+│   │   └── img2 [14412 entries exceeds filelimit, not opening dir]
+│   └── instagram_data2
+├── main.py
+├── metadata
+│   ├── __pycache__
+│   │   └── readData.cpython-38.pyc
+│   ├── config.py
+│   └── readData.py
+├── output
+│   ├── checkpoints
+│   └── image_features_dictionary.pkl
+└── test.py
+````
 
 ## Pre-requisites
 In order to appropriately understand and implement this project, following pre-requisites might come in handy for you,
