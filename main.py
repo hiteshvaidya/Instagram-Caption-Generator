@@ -22,12 +22,13 @@ import os
 import time
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pickle as pkl
 
 
 def extract_features(df):
     '''
     Extract features from each photo in the directory
-    :param directory: directory location
+    :param df: dataframe
     :return: features
     '''
 
@@ -151,7 +152,8 @@ def metric(hist):
     plt.legend()
     plt.xlabel('epochs')
     plt.ylabel('loss')
-    plt.show()
+    # plt.show()
+    plt.savefig(config.BASE_OUTPUT+'metrics.png')
 
 
 def predict_caption(img_text_model, image, tokenizer, index_word):
@@ -174,7 +176,7 @@ def predict_caption(img_text_model, image, tokenizer, index_word):
         in_text += ' ' + new_word
         if new_word == '<END>':
             break
-    return (in_text)
+    return in_text
 
 
 def plot_images(img_text_model, fnm_test, di_test, tokenizer, index_word):
@@ -213,8 +215,9 @@ def plot_images(img_text_model, fnm_test, di_test, tokenizer, index_word):
         ax.set_ylim(0, 1)
         ax.text(0, 0.5, caption, fontsize=20)
         count += 1
-
-    plt.show()
+    print('[INFO] displaying sample results')
+    # plt.show()
+    plt.savefig(os.path.join(config.BASE_OUTPUT, 'sample_output.png'))
 
 
 def bleu_score(img_text_model, fnm_test, di_test, dt_test, tokenizer,
@@ -269,8 +272,16 @@ def main():
 
     # obtain a cleaned data frame
     df = clean_data()
+
     # extract feature vectors of image from VGG16
-    images = extract_features(df)
+    # images = extract_features(df)
+    # # save these features in output directory
+    # pkl.dump(images, open('output/image_features_dictionary.pkl', 'wb'),
+    #          protocol=pkl.HIGHEST_PROTOCOL)
+
+    # load pkl file of images features
+    images = pkl.load(open('output/image_features_dictionary.pkl', 'rb'))
+
     # split into training and testing data
     prop_test, prop_val = 0.2, 0.2
 
@@ -283,10 +294,22 @@ def main():
                 data_list[Ntest + Nval:])
 
     dt_test, dt_val, dt_train = split_test_val_train(df['Caption'], Ntest, Nval)
-    di_test, di_val, di_train = split_test_val_train(images.values(), Ntest,
+    # count = 0
+    # for key, value in images.items():
+    #     count += 1
+    #     if count == 1:
+    #         print('key:', key)
+    #         print('value:', value)
+    # print('count =', count)
+    images = list(images.items())
+    images = np.asarray(images)
+
+    di_test, di_val, di_train = split_test_val_train(images[:, 1], Ntest,
                                                      Nval)
-    fnm_test, fnm_val, fnm_train = split_test_val_train(images.keys(), Ntest,
+    fnm_test, fnm_val, fnm_train = split_test_val_train(images[:, 0], Ntest,
                                                         Nval)
+
+    print('[INFO] data split complete')
 
     # Find the max length of the caption
     config.maxlen = np.max([len(text) for text in df['Caption']])
@@ -295,7 +318,7 @@ def main():
     # maximum number of words in dictionary
     nb_words = 6000
     # Tokenize data
-    tokenizer = Tokenizer(nb_words=nb_words, oov_token='<OOV>')
+    tokenizer = Tokenizer(num_words=nb_words, oov_token='<OOV>')
     tokenizer.fit_on_texts(df['Caption'][Ntest:])
     config.vocab_size = len(tokenizer.word_index) + 1
     print('vocabulary size', config.vocab_size)
@@ -315,26 +338,60 @@ def main():
 
     # Train model
     start = time.time()
+
+    # model checkpoints
+    checkpoint_path = config.BASE_OUTPUT + "checkpoints/cp.ckpt"
+    checkpoint_dir = os.path.dirname(checkpoint_path)
+
+    # Create a callback that saves the model's weights after every 5 epochs
+    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
+                                                     save_weights_only=True,
+                                                     verbose=1)
+    # # Create a callback that saves the model's weights every 5 epochs
+    # cp_callback = tf.keras.callbacks.ModelCheckpoint(
+    #     filepath=checkpoint_path,
+    #     verbose=1,
+    #     save_weights_only=True,
+    #     save_freq=5 * config.BATCH_SIZE)
+
+    print('[INFO] training started')
+
+    # Train the model with the new callback
     hist = img_text_model.fit([Ximage_train, Xtext_train], ytext_train,
                               epochs=config.EPOCHS, verbose=2,
-                              batch_size=config.BATCH_SIZE, validation_data=(
-            [Ximage_val, Xtext_val], ytext_val))
+                              batch_size=config.BATCH_SIZE,
+                              validation_data=([Ximage_val, Xtext_val],
+                                               ytext_val),
+                              callbacks=[cp_callback]) # pass callback to
+    # training
     end = time.time()
+    print('----------[INFO] Training complete-------------')
     print('Time of execution = {:3.2f}MIN'.format((end - start) / 60))
     print('Dimensions of image, input_text and output_text:')
     print(Ximage_train.shape, Xtext_train.shape, ytext_train.shape)
     # Display metric graphs
     metric(hist)
-
+    print('[INFO] Metrics saved in output directory')
     # Inverse of tokenizer.word_index dictionary
     index_word = dict([(index, word) for word, index in tokenizer.word_index])
     # plot images along with their captions
     plot_images(img_text_model, fnm_test, di_test, tokenizer, index_word)
+    print('[INFO] sample outputs saved in output directory')
     # Display BLEU score
     bleu_score(img_text_model, fnm_test, di_test, dt_test, tokenizer,
                index_word)
+    print('[INFO] BLEU score calculated')
 
 
 if __name__ == '__main__':
-    print('Test')
+    # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    # os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
+    # gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+    # for device in gpu_devices:
+    #     tf.config.experimental.set_memory_growth(device, True)
+    # gpus = tf.config.experimental.list_physical_devices('GPU')
+    #
+    # tf.config.experimental.set_virtual_device_configuration(gpus[0], [
+    #     tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)])
+
     main()
