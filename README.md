@@ -53,10 +53,9 @@ Instagram_caption_generator/
 │   │   └── readData.cpython-38.pyc
 │   ├── config.py
 │   └── readData.py
-├── output
-│   ├── checkpoints
-│   └── image_features_dictionary.pkl
-└── test.py
+└── output
+    ├── checkpoints
+    └── image_features_dictionary.pkl
 ````
 
 ## Pre-requisites
