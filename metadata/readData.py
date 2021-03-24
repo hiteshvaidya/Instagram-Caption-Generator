@@ -139,17 +139,12 @@ def load_images_list(directory):
 def clean_data():
     print('[INFO] reading data')
     df = read_data('data/instagram_data/captions_csv.csv')
-    df2 = read_data('data/instagram_data/captions_csv2.csv')
-    print('Datafram 1:')
-    print(df.head())
-    print('Dataframe 2:')
-    print(df2.head())
-
-    df = pd.concat([df, df2])
+    # df2 = read_data('data/instagram_data/captions_csv2.csv')
+    # df = pd.concat([df, df2])
     df = shuffle(df)
-    print('\n\nNew merged Dataframe')
-    print(df.head())
-    print('column names:', df.columns)
+    # print('\n\nNew merged Dataframe')
+    # print(df.head())
+    # print('column names:', df.columns)
     # print('Number of rows before emoji cleaning:', len(df))
     # df["english"] = df['Caption'].map(isEnglishOrEmoji)
     # df = df[df.english == True]
