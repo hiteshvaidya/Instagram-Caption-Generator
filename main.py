@@ -5,6 +5,7 @@ Author: Hitesh Vaidya
 '''
 
 # import libraries
+import psutil
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from metadata.readData import clean_data, load_images_list
@@ -13,6 +14,8 @@ from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, \
+    TensorBoard
 from tensorflow.keras import layers
 from metadata import config
 from collections import OrderedDict
@@ -23,6 +26,7 @@ import time
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import pickle as pkl
+from sys import getsizeof
 
 
 def extract_features(df):
@@ -56,7 +60,7 @@ def extract_features(df):
     tqdm.write('Reading images and obtaining their features')
     for i, name in tqdm(enumerate(images_list)):
         # load an image from file
-        filename = os.path.join(os.getcwd(), img_path, name+'.jpg')
+        filename = os.path.join(os.getcwd(), img_path, name + '.jpg')
         # load image in PIL format
         image = load_img(filename, target_size=config.target_size)
         # convert the image pixels to a numpy array
@@ -136,8 +140,8 @@ def img_to_text_model(input_shape):
     # compile the model
     model.compile(loss='categorical_crossentropy', optimizer='adam')
 
-    print('Image to text model summary')
-    print(model.summary())
+    # print('Image to text model summary')
+    # print(model.summary())
     return model
 
 
@@ -153,7 +157,7 @@ def metric(hist):
     plt.xlabel('epochs')
     plt.ylabel('loss')
     # plt.show()
-    plt.savefig(config.BASE_OUTPUT+'metrics.png')
+    plt.savefig(config.BASE_OUTPUT + 'metrics.png')
 
 
 def predict_caption(img_text_model, image, tokenizer, index_word):
@@ -273,14 +277,14 @@ def main():
     # obtain a cleaned data frame
     df = clean_data()
 
-    # extract feature vectors of image from VGG16
+    # # extract feature vectors of image from VGG16
     # images = extract_features(df)
     # # save these features in output directory
-    # pkl.dump(images, open('output/image_features_dictionary.pkl', 'wb'),
+    # pkl.dump(images, open('output/small_image_features_dictionary.pkl', 'wb'),
     #          protocol=pkl.HIGHEST_PROTOCOL)
 
     # load pkl file of images features
-    images = pkl.load(open('output/image_features_dictionary.pkl', 'rb'))
+    images = pkl.load(open('output/small_image_features_dictionary.pkl', 'rb'))
 
     # split into training and testing data
     prop_test, prop_val = 0.2, 0.2
@@ -308,15 +312,18 @@ def main():
                                                      Nval)
     fnm_test, fnm_val, fnm_train = split_test_val_train(images[:, 0], Ntest,
                                                         Nval)
+    # print('di_train, fnm_train:')
+    # print(di_train[:3])
+    # print(fnm_train[:3])
 
     print('[INFO] data split complete')
 
     # Find the max length of the caption
     config.maxlen = np.max([len(text) for text in df['Caption']])
-    print('Maximum length of caption:',config.maxlen)
+    print('Maximum length of caption:', config.maxlen)
 
     # maximum number of words in dictionary
-    nb_words = 6000
+    nb_words = 5000
     # Tokenize data
     tokenizer = Tokenizer(num_words=nb_words, oov_token='<OOV>')
     tokenizer.fit_on_texts(df['Caption'][Ntest:])
@@ -326,27 +333,88 @@ def main():
     dt_test = tokenizer.texts_to_sequences(dt_test)
     dt_val = tokenizer.texts_to_sequences(dt_val)
 
+    print('[INFO] CPU USAGE:')
+    print(psutil.virtual_memory())
+
     # Obtain image feature and captions divided in seq2seq format
     Xtext_train, Ximage_train, ytext_train = preprocessing(dt_train,
                                                            di_train)
+    print('[INFO] CPU USAGE after train data preprocessing:')
+    print(psutil.virtual_memory().percent)
+    print('Memory size of Xtext_train, Ximage_train, ytext_train:',
+          Xtext_train.nbytes, Ximage_train.nbytes, ytext_train.nbytes)
     Xtext_val, Ximage_val, ytext_val = preprocessing(dt_val, di_val)
-    # pre-processing is not necessary for testing data
-    # Xtext_test,  Ximage_test,  ytext_test  = preprocessing(dt_test, di_test)
+    print('[INFO] CPU USAGE after validation data preprocessing:')
+    print(psutil.virtual_memory().percent)
+    print('Memory size of Xtext_val, Ximage_val, ytext_val:', Xtext_val.nbytes,
+          Ximage_val.nbytes, ytext_val.nbytes)
+
+    # pkl.dump((Xtext_train, Ximage_train, ytext_train),
+    #          open('output/logs/training_features.pkl', 'wb'),
+    #          protocol=pkl.HIGHEST_PROTOCOL)
+    # pkl.dump((Xtext_val, Ximage_val, ytext_val), open(
+    #     'output/logs/validation_features.pkl', 'wb'),
+    #          protocol=pkl.HIGHEST_PROTOCOL)
+    # with open('train_data.npy', 'wb') as f:
+    #     np.save(f, Xtext_train)
+    #     np.save(f, Ximage_train)
+    #     np.save(f, ytext_train)
+    # with open('val_data.npy', 'wb') as f:
+    #     np.save(f, Xtext_val)
+    #     np.save(f, Ximage_train)
+    #     np.save(f, ytext_val)
+    #
+    # del Xtext_train
+    # del Xtext_val
+    # del Ximage_train
+    # del Ximage_val
+    # del ytext_train
+    # del ytext_val
+    del dt_train
+    del di_train
+    del dt_val
+    del di_val
+    del df
+    del images
+
+    print('[INFO] CPU USAGE:')
+    print(psutil.virtual_memory())
+
+    # Form tensorflow dataset
+    train_input_set = tf.data.Dataset.from_tensor_slices((Ximage_train,
+                                                          Xtext_train))
+    train_label_set = tf.data.Dataset.from_tensor_slices(ytext_train)
+    train_dataset = tf.data.Dataset.zip((train_input_set, train_label_set))
+    train_dataset = train_dataset.shuffle(config.SHUFFLE_BUFFER_SIZE).batch(
+        config.BATCH_SIZE)  # .prefetch(buffer_size=2)
+    val_input_set = tf.data.Dataset.from_tensor_slices((Ximage_val, Xtext_val))
+    val_label_set = tf.data.Dataset.from_tensor_slices(ytext_val)
+    val_dataset = tf.data.Dataset.zip((val_input_set, val_label_set))
+    val_dataset = val_dataset.batch(config.BATCH_SIZE)
 
     # final neural network model
     img_text_model = img_to_text_model(Ximage_train.shape[1])
+
+    # # Load checkpoint
+    # img_text_model.load_weights(os.path.join(config.BASE_OUTPUT,
+    #                                          'checkpoints'))
 
     # Train model
     start = time.time()
 
     # model checkpoints
-    checkpoint_path = config.BASE_OUTPUT + "checkpoints/cp.ckpt"
+    checkpoint_path = os.path.join(config.BASE_OUTPUT, "checkpoints",
+                                   'cp-{epoch:02d}-{val_loss:.2f}.hdf5')
     checkpoint_dir = os.path.dirname(checkpoint_path)
 
-    # Create a callback that saves the model's weights after every 5 epochs
-    cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=checkpoint_path,
-                                                     save_weights_only=True,
-                                                     verbose=1)
+    # Initialize callbacks
+    es = EarlyStopping(monitor='val_loss', patience=3,
+                       restore_best_weights=True)
+    mc = ModelCheckpoint(filepath=checkpoint_path, monitor='val_loss',
+                         save_best_only=False, save_weights_only=True)
+    tb = TensorBoard(log_dir='output/logs', histogram_freq=1, write_graph=True,
+                     embeddings_freq=1)
+
     # # Create a callback that saves the model's weights every 5 epochs
     # cp_callback = tf.keras.callbacks.ModelCheckpoint(
     #     filepath=checkpoint_path,
@@ -357,18 +425,34 @@ def main():
     print('[INFO] training started')
 
     # Train the model with the new callback
-    hist = img_text_model.fit([Ximage_train, Xtext_train], ytext_train,
+    # hist = img_text_model.fit([Ximage_train, Xtext_train], ytext_train,
+    #                           epochs=config.EPOCHS, verbose=2,
+    #                           batch_size=config.BATCH_SIZE,
+    #                           validation_data=([Ximage_val, Xtext_val],
+    #                                            ytext_val),
+    #                           callbacks=[cp_callback]) # pass callback to
+
+    # training
+    hist = img_text_model.fit(train_dataset,
                               epochs=config.EPOCHS, verbose=2,
                               batch_size=config.BATCH_SIZE,
-                              validation_data=([Ximage_val, Xtext_val],
-                                               ytext_val),
-                              callbacks=[cp_callback]) # pass callback to
-    # training
+                              validation_data=val_dataset,
+                              callbacks=[es, mc, tb])  # pass callback to
+
     end = time.time()
+
+    # free up memory
+    del Ximage_train
+    del Xtext_train
+    del ytext_train
+    del Ximage_val
+    del Xtext_val
+    del ytext_val
+
     print('----------[INFO] Training complete-------------')
     print('Time of execution = {:3.2f}MIN'.format((end - start) / 60))
-    print('Dimensions of image, input_text and output_text:')
-    print(Ximage_train.shape, Xtext_train.shape, ytext_train.shape)
+    # print('Dimensions of image, input_text and output_text:')
+    # print(Ximage_train.shape, Xtext_train.shape, ytext_train.shape)
     # Display metric graphs
     metric(hist)
     print('[INFO] Metrics saved in output directory')
@@ -377,10 +461,16 @@ def main():
     # plot images along with their captions
     plot_images(img_text_model, fnm_test, di_test, tokenizer, index_word)
     print('[INFO] sample outputs saved in output directory')
+
+    # pre-processing is not necessary for testing data
+    Xtext_test, Ximage_test, ytext_test = preprocessing(dt_test, di_test)
+
     # Display BLEU score
     bleu_score(img_text_model, fnm_test, di_test, dt_test, tokenizer,
                index_word)
     print('[INFO] BLEU score calculated')
+
+    img_text_model.save('output/models/small_model.h5')
 
 
 if __name__ == '__main__':
